@@ -1,0 +1,274 @@
+"""Registry of languages the wall tries to run.
+
+Each Lang is fully data-driven. The runner resolves these placeholder tokens
+inside `build` / `run` argument lists (never with a shell, always argv lists):
+
+    {src}  -> absolute path to the written source file
+    {exe}  -> absolute path to use for a compiled binary
+    {dir}  -> the language's private working directory
+
+Each entry also carries a short historical attribution (`creator`, `since`)
+which is shown on the tile and expanded in the README. These are deliberately
+short; longer credit (committees, co-authors) lives in README.md.
+
+Adding a language = adding one entry here. No other file needs to change.
+"""
+
+from dataclasses import dataclass, field
+import platform
+from typing import List
+
+
+@dataclass
+class Lang:
+    name: str                       # display name on the tile
+    file: str                       # source file name written into {dir}
+    source: str                     # the Hello World program text
+    run: List[str]                  # argv to produce output (placeholders allowed)
+    checks: List[str]               # executables that must all be on PATH
+    build: List[List[str]] = field(default_factory=list)  # optional compile steps
+    category: str = "easy"          # easy | compiled | ecosystem | tricky
+    note: str = ""                  # short honesty note shown on the tile
+    timeout: float = 0.0            # per-language override; 0 => runner default
+    kind: str = "subprocess"        # "subprocess" or "browser" (runs in the page)
+    creator: str = ""               # short attribution shown on the tile
+    since: str = ""                 # year of first public release
+
+
+# --- architecture-specific Assembly -----------------------------------------
+
+_ASM_ARM64 = """\
+.global _main
+.align 2
+_main:
+    mov     x0, #1                 // fd = stdout
+    adrp    x1, msg@PAGE
+    add     x1, x1, msg@PAGEOFF
+    mov     x2, #12                // byte count
+    mov     x16, #4                // write syscall
+    svc     #0x80
+    mov     x0, #0
+    mov     x16, #1                // exit syscall
+    svc     #0x80
+.data
+msg:
+    .ascii  "Hello World\\n"
+"""
+
+_ASM_X86_64 = """\
+.global _main
+_main:
+    movl    $0x2000004, %eax       # write
+    movl    $1, %edi               # fd = stdout
+    leaq    msg(%rip), %rsi
+    movl    $12, %edx              # byte count
+    syscall
+    movl    $0x2000001, %eax       # exit
+    xorl    %edi, %edi
+    syscall
+.data
+msg:
+    .ascii  "Hello World\\n"
+"""
+
+
+def _assembly_lang():
+    machine = platform.machine().lower()
+    if machine in ("arm64", "aarch64"):
+        src = _ASM_ARM64
+        note = "macOS arm64, raw write/exit syscalls"
+    elif machine in ("x86_64", "amd64"):
+        src = _ASM_X86_64
+        note = "macOS x86_64, raw write/exit syscalls"
+    else:
+        src = "; unsupported architecture\n"
+        note = f"no hand-written variant for {machine}"
+    return Lang(
+        name="Assembly",
+        file="hello.s",
+        source=src,
+        build=[["cc", "{src}", "-o", "{exe}"]],
+        run=["{exe}"],
+        checks=["cc"],
+        category="tricky",
+        note=note,
+        timeout=20,
+        creator="Kathleen Booth (first assembler)",
+        since="1947",
+    )
+
+
+def get_languages() -> List[Lang]:
+    langs: List[Lang] = [
+        # ---- almost always present: scripting + shells ----
+        Lang("Python", "hello.py", 'print("Hello World")\n',
+             run=["python3", "{src}"], checks=["python3"],
+             creator="Guido van Rossum", since="1991"),
+        Lang("JavaScript", "hello.js", 'console.log("Hello World");\n',
+             run=["node", "{src}"], checks=["node"], note="Node.js",
+             creator="Brendan Eich", since="1995"),
+        Lang("Ruby", "hello.rb", 'puts "Hello World"\n',
+             run=["ruby", "{src}"], checks=["ruby"],
+             creator='Yukihiro "Matz" Matsumoto', since="1995"),
+        Lang("Perl", "hello.pl", 'print "Hello World\\n";\n',
+             run=["perl", "{src}"], checks=["perl"],
+             creator="Larry Wall", since="1987"),
+        Lang("PHP", "hello.php", '<?php echo "Hello World\\n";\n',
+             run=["php", "{src}"], checks=["php"],
+             creator="Rasmus Lerdorf", since="1994"),
+        Lang("Lua", "hello.lua", 'print("Hello World")\n',
+             run=["lua", "{src}"], checks=["lua"],
+             creator="Ierusalimschy, Figueiredo & Celes (PUC-Rio)", since="1993"),
+        Lang("Bash", "hello.sh", 'echo "Hello World"\n',
+             run=["bash", "{src}"], checks=["bash"],
+             creator="Brian Fox (GNU)", since="1989"),
+        Lang("Zsh", "hello.zsh", 'echo "Hello World"\n',
+             run=["zsh", "{src}"], checks=["zsh"],
+             creator="Paul Falstad", since="1990"),
+        Lang("POSIX sh", "hello.posix.sh", 'echo "Hello World"\n',
+             run=["sh", "{src}"], checks=["sh"],
+             creator="Stephen Bourne (Bourne shell)", since="1977"),
+        Lang("AWK", "hello.awk", 'BEGIN { print "Hello World" }\n',
+             run=["awk", "-f", "{src}"], checks=["awk"],
+             creator="Aho, Weinberger & Kernighan", since="1977"),
+        Lang("Tcl", "hello.tcl", 'puts "Hello World"\n',
+             run=["tclsh", "{src}"], checks=["tclsh"],
+             creator="John Ousterhout", since="1988"),
+        Lang("AppleScript", "hello.applescript", '"Hello World"\n',
+             run=["osascript", "{src}"], checks=["osascript"],
+             note="macOS osascript",
+             creator="Apple (William Cook, architect)", since="1993"),
+        Lang("SQL (SQLite)", "hello.sql", "-- run inline\n",
+             run=["sqlite3", ":memory:", "select 'Hello World';"],
+             checks=["sqlite3"], note="in-memory SELECT",
+             creator="D. Richard Hipp · SQL by Chamberlin & Boyce, 1974",
+             since="2000"),
+        Lang("R", "hello.R", 'cat("Hello World\\n")\n',
+             run=["Rscript", "{src}"], checks=["Rscript"], category="ecosystem",
+             creator="Ross Ihaka & Robert Gentleman", since="1993"),
+        Lang("PowerShell", "hello.ps1", 'Write-Output "Hello World"\n',
+             run=["pwsh", "-NoProfile", "-File", "{src}"], checks=["pwsh"],
+             category="ecosystem",
+             creator="Jeffrey Snover (Microsoft)", since="2006"),
+
+        # ---- compiled with the C/C++/Obj-C/Swift toolchain (Xcode CLT) ----
+        Lang("C", "hello.c",
+             '#include <stdio.h>\nint main(void){ printf("Hello World\\n"); return 0; }\n',
+             build=[["cc", "{src}", "-o", "{exe}"]], run=["{exe}"],
+             checks=["cc"], category="compiled",
+             creator="Dennis Ritchie (Bell Labs)", since="1972"),
+        Lang("C++", "hello.cpp",
+             '#include <iostream>\nint main(){ std::cout << "Hello World" << std::endl; return 0; }\n',
+             build=[["c++", "{src}", "-o", "{exe}"]], run=["{exe}"],
+             checks=["c++"], category="compiled",
+             creator="Bjarne Stroustrup (Bell Labs)", since="1985"),
+        Lang("Objective-C", "hello.m",
+             '#import <Foundation/Foundation.h>\n'
+             'int main(){ @autoreleasepool { printf("Hello World\\n"); } return 0; }\n',
+             build=[["clang", "{src}", "-framework", "Foundation", "-o", "{exe}"]],
+             run=["{exe}"], checks=["clang"], category="compiled",
+             creator="Brad Cox & Tom Love", since="1984"),
+        Lang("Swift", "hello.swift", 'print("Hello World")\n',
+             run=["swift", "{src}"], checks=["swift"], category="compiled",
+             note="script mode", timeout=60,
+             creator="Chris Lattner (Apple)", since="2014"),
+        _assembly_lang(),
+
+        # ---- JVM family ----
+        Lang("Java", "Hello.java",
+             'public class Hello {\n'
+             '  public static void main(String[] a){ System.out.println("Hello World"); }\n'
+             '}\n',
+             build=[["javac", "{src}"]], run=["java", "-cp", "{dir}", "Hello"],
+             checks=["javac", "java"], category="ecosystem", timeout=60,
+             creator="James Gosling (Sun)", since="1995"),
+        Lang("Kotlin", "Hello.kt", 'fun main(){ println("Hello World") }\n',
+             build=[["kotlinc", "{src}", "-include-runtime", "-d", "{dir}/hello.jar"]],
+             run=["java", "-jar", "{dir}/hello.jar"],
+             checks=["kotlinc", "java"], category="ecosystem",
+             note="slow: JVM compile", timeout=150,
+             creator="Andrey Breslav (JetBrains)", since="2011"),
+        Lang("Scala", "Hello.scala",
+             'object Hello extends App { println("Hello World") }\n',
+             run=["scala", "{src}"], checks=["scala"], category="ecosystem",
+             timeout=120,
+             creator="Martin Odersky (EPFL)", since="2004"),
+        Lang("Groovy", "hello.groovy", 'println "Hello World"\n',
+             run=["groovy", "{src}"], checks=["groovy"], category="ecosystem",
+             timeout=60,
+             creator="James Strachan", since="2003"),
+
+        # ---- other ecosystems (run if installed, else honest fallback) ----
+        Lang("Go", "hello.go",
+             'package main\nimport "fmt"\nfunc main(){ fmt.Println("Hello World") }\n',
+             run=["go", "run", "{src}"], checks=["go"], category="ecosystem",
+             timeout=60,
+             creator="Griesemer, Pike & Thompson (Google)", since="2009"),
+        Lang("Rust", "hello.rs", 'fn main(){ println!("Hello World"); }\n',
+             build=[["rustc", "{src}", "-o", "{exe}"]], run=["{exe}"],
+             checks=["rustc"], category="ecosystem", timeout=60,
+             creator="Graydon Hoare (Mozilla)", since="2010"),
+        Lang("TypeScript", "hello.ts",
+             'const m: string = "Hello World";\nconsole.log(m);\n',
+             run=["ts-node", "{src}"], checks=["ts-node"], category="ecosystem",
+             note="via ts-node",
+             creator="Anders Hejlsberg (Microsoft)", since="2012"),
+        Lang("TypeScript (Deno)", "hello.deno.ts", 'console.log("Hello World");\n',
+             run=["deno", "run", "{src}"], checks=["deno"], category="ecosystem",
+             creator="Ryan Dahl (Deno) · TS by Hejlsberg, 2012", since="2018"),
+        Lang("Dart", "hello.dart", 'void main(){ print("Hello World"); }\n',
+             run=["dart", "{src}"], checks=["dart"], category="ecosystem",
+             timeout=60,
+             creator="Lars Bak & Kasper Lund (Google)", since="2011"),
+        Lang("C# (Mono)", "Hello.cs",
+             'class Hello { static void Main(){ System.Console.WriteLine("Hello World"); } }\n',
+             build=[["mcs", "{src}", "-out:{dir}/hello.exe"]],
+             run=["mono", "{dir}/hello.exe"],
+             checks=["mcs", "mono"], category="ecosystem",
+             creator="Miguel de Icaza (Mono) · C# by Hejlsberg, 2000",
+             since="2004"),
+        Lang("Haskell", "hello.hs", 'main = putStrLn "Hello World"\n',
+             run=["runghc", "{src}"], checks=["runghc"], category="ecosystem",
+             timeout=60,
+             creator="Haskell Committee", since="1990"),
+        Lang("Julia", "hello.jl", 'println("Hello World")\n',
+             run=["julia", "{src}"], checks=["julia"], category="ecosystem",
+             timeout=60,
+             creator="Bezanson, Karpinski, Shah & Edelman (MIT)", since="2012"),
+        Lang("Elixir", "hello.exs", 'IO.puts "Hello World"\n',
+             run=["elixir", "{src}"], checks=["elixir"], category="ecosystem",
+             timeout=60,
+             creator="José Valim", since="2011"),
+        Lang("Erlang", "hello.erl",
+             '#!/usr/bin/env escript\nmain(_) -> io:format("Hello World~n").\n',
+             run=["escript", "{src}"], checks=["escript"], category="ecosystem",
+             creator="Armstrong, Virding & Williams (Ericsson)", since="1986"),
+        Lang("Crystal", "hello.cr", 'puts "Hello World"\n',
+             run=["crystal", "run", "--no-color", "{src}"], checks=["crystal"],
+             category="ecosystem", timeout=90,
+             creator="Ary Borenszweig & Juan Wajnerman", since="2014"),
+        Lang("Nim", "hello.nim", 'echo "Hello World"\n',
+             build=[["nim", "c", "--hints:off", "-o:{exe}", "{src}"]], run=["{exe}"],
+             checks=["nim"], category="ecosystem", timeout=90,
+             creator="Andreas Rumpf", since="2008"),
+        Lang("Zig", "hello.zig",
+             'const std = @import("std");\n'
+             'pub fn main() !void {\n'
+             '    try std.io.getStdOut().writeAll("Hello World\\n");\n'
+             '}\n',
+             run=["zig", "run", "{src}"], checks=["zig"], category="ecosystem",
+             timeout=90,
+             creator="Andrew Kelley", since="2016"),
+        Lang("Fortran", "hello.f90",
+             'program hello\n  print *, "Hello World"\nend program hello\n',
+             build=[["gfortran", "{src}", "-o", "{exe}"]], run=["{exe}"],
+             checks=["gfortran"], category="ecosystem", timeout=60,
+             creator="John Backus (IBM)", since="1957"),
+
+        # ---- runs inside the very browser that shows the wall ----
+        Lang("HTML / JavaScript", "hello.html", "",
+             run=[], checks=[], category="easy", kind="browser",
+             note="executed live in this page",
+             creator="Tim Berners-Lee (HTML) · JS by Eich, 1995", since="1991"),
+    ]
+    return langs

@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+.venv*/
+venv/
+.python-version
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Runtime artefacts from the wall itself
+hww-*/
+/tmp/hww_*
