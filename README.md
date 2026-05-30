@@ -76,13 +76,13 @@ operating system below and follow exactly those steps.
 1. Open the **Terminal** app. Press `⌘` + `Space` to open Spotlight, type
    `Terminal`, press Return. A small window opens with a blinking cursor.
 2. Download this project. Easiest way: in your browser, go to the GitHub page
-   for `hello-world-wall`, click the green **Code** button → **Download ZIP**,
+   for `hello-world-showcase`, click the green **Code** button → **Download ZIP**,
    then double-click the downloaded file to unzip it. A folder called
-   `hello-world-wall` (or `hello-world-wall-main`) appears in your Downloads.
+   `hello-world-showcase` (or `hello-world-showcase-main`) appears in your Downloads.
 3. In the Terminal, type these two lines, pressing Return after each (use
    `-main` if that's what your folder is called):
    ```
-   cd ~/Downloads/hello-world-wall
+   cd ~/Downloads/hello-world-showcase
    python3 run.py
    ```
 4. After ~15 seconds your browser opens a dark page covered in `Hello World`
@@ -102,13 +102,13 @@ full-screen.
 2. Open **Windows Terminal** (or PowerShell): press the Start button, type
    `Terminal`, press Enter.
 3. Download this project. In your browser, go to the GitHub page for
-   `hello-world-wall`, click the green **Code** button → **Download ZIP**,
+   `hello-world-showcase`, click the green **Code** button → **Download ZIP**,
    then right-click the downloaded file in your Downloads folder and choose
    **Extract All…** to unzip it.
 4. In the Terminal, type these two lines, pressing Enter after each (use
    `-main` if that's what your folder is called):
    ```
-   cd $env:USERPROFILE\Downloads\hello-world-wall
+   cd $env:USERPROFILE\Downloads\hello-world-showcase
    python run.py
    ```
    (If `python` says "not found", try `py run.py` instead — Windows installs
@@ -128,13 +128,13 @@ If your browser opened in a normal tab, press `F11` for full-screen.
    Linux distribution.
 2. Download this project. Either:
    ```
-   git clone https://github.com/DanielDeveloped/hello-world-wall.git
+   git clone https://github.com/DanielDeveloped/hello-world-showcase.git
    ```
    …or grab the ZIP from the GitHub page (green **Code** → **Download ZIP**)
    and unzip it.
 3. In the terminal, run:
    ```
-   cd hello-world-wall
+   cd hello-world-showcase
    python3 run.py
    ```
 4. After ~15 seconds your browser opens a dark page covered in `Hello World`
@@ -150,8 +150,8 @@ is the one exception, but you'll use that again). Nothing is still running.
 ### 🟡 Path B — "I kind of know my way around a terminal"
 
 ```bash
-git clone https://github.com/DanielDeveloped/hello-world-wall.git
-cd hello-world-wall
+git clone https://github.com/DanielDeveloped/hello-world-showcase.git
+cd hello-world-showcase
 python3 run.py          # macOS / Linux
 # or:    py run.py      # Windows (use whichever Python launcher you have)
 ```
@@ -310,7 +310,7 @@ matters.
 
 ### Folder structure
 ```
-hello-world-wall/
+hello-world-showcase/
 ├── run.py                 # entry point / CLI / orchestration
 ├── README.md
 ├── LICENSE
