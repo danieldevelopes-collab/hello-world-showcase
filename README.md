@@ -5,7 +5,7 @@
 > it and everything stops.
 
 **By Daniel Bratcher · [@DanielDeveloped](https://github.com/DanielDeveloped)**
-· MIT licensed · Python 3 · no third-party packages
+· MIT licensed · Python 3 · no third-party packages · runs on **macOS, Linux, and Windows**
 
 ![A wall of programming languages each printing Hello World, with an END PROJECT button glowing in the centre](docs/screenshot.png)
 
@@ -21,10 +21,13 @@ whose runtime isn't installed are still shown — clearly marked
 whole thing shuts down: server gone, browser window gone, temp files gone,
 nothing in the background.
 
-It tries to support up to 39 languages out of the box. On a clean macOS with
-just Xcode Command Line Tools and Node.js installed, around 18 light up green
-immediately. Install more runtimes and more tiles go green — nothing else
-needs to change.
+It tries to support up to 41 languages out of the box, and runs on **macOS,
+Linux, and Windows**. On a clean macOS with just Xcode Command Line Tools and
+Node.js installed, around 18 tiles light up green immediately; on a typical
+Linux box with build-essential + Node about the same; on a fresh Windows 10/11
+with Python installed, around 6–8 (Python, JS if Node is present, Batch,
+Windows PowerShell, plus whatever else you have). Install more runtimes and
+more tiles go green — nothing else needs to change.
 
 ---
 
@@ -63,78 +66,117 @@ There are three paths below. Pick whichever describes you most honestly.
 
 ### 🟢 Path A — "I have never opened a Terminal in my life"
 
-You only need a Mac. No prior coding required. The whole thing uses Python,
-which is already installed on macOS — you don't need to download anything.
+No prior coding required. The whole thing uses Python, which is already on
+macOS and most Linux systems and is a free download on Windows. Pick your
+operating system below and follow exactly those steps.
 
-1. Open the **Terminal** app. Easiest way: press `⌘` + `Space` to open Spotlight,
-   type `Terminal`, press Return. A small black window opens with a blinking
-   cursor. That's a terminal. Don't be intimidated — you're going to type
-   four short lines.
+<details>
+<summary><b>🍎 macOS</b></summary>
 
-2. Copy the line below, click into the Terminal window, paste it (press
-   `⌘` + `V`), then press Return:
+1. Open the **Terminal** app. Press `⌘` + `Space` to open Spotlight, type
+   `Terminal`, press Return. A small window opens with a blinking cursor.
+2. Download this project. Easiest way: in your browser, go to the GitHub page
+   for `hello-world-wall`, click the green **Code** button → **Download ZIP**,
+   then double-click the downloaded file to unzip it. A folder called
+   `hello-world-wall` (or `hello-world-wall-main`) appears in your Downloads.
+3. In the Terminal, type these two lines, pressing Return after each (use
+   `-main` if that's what your folder is called):
    ```
-   cd ~/Downloads
-   ```
-   That tells the terminal "work inside my Downloads folder."
-
-3. Now download this project. You can either:
-   - **Easy:** go to this project's GitHub page in your web browser, click the
-     green **Code** button, click **Download ZIP**, then double-click the
-     downloaded file to unzip it. A folder called `hello-world-wall` (or
-     `hello-world-wall-main`) appears in your Downloads.
-   - **A bit fancier:** paste this into the Terminal and press Return:
-     ```
-     git clone https://github.com/DanielDeveloped/hello-world-wall.git
-     ```
-     (This only works if you have `git` installed. If you get a popup asking
-     to install developer tools, click **Install** — that takes 5–10 minutes
-     and only happens once.)
-
-4. Tell the terminal to go into the project folder:
-   ```
-   cd hello-world-wall
-   ```
-   (If your folder is called `hello-world-wall-main`, use that instead.)
-
-5. Run the wall:
-   ```
+   cd ~/Downloads/hello-world-wall
    python3 run.py
    ```
-   The terminal prints a small progress bar as it tests each language. After
-   ~15 seconds your browser opens a dramatic dark page with a wall of `Hello
-   World` tiles and a big red button in the middle.
+4. After ~15 seconds your browser opens a dark page covered in `Hello World`
+   tiles with a big red button in the middle.
+5. Click the red **END PROJECT** button to shut it all down.
 
-6. **When you're done**, click the red **END PROJECT** button. The browser tab
-   says "Demonstration ended" and the terminal goes quiet. You can close
-   them both.
+If your browser opened in a normal tab, press `⌘` + `Ctrl` + `F` for true
+full-screen.
+</details>
 
-**That's it.** Nothing got installed permanently. Nothing is still running.
+<details>
+<summary><b>🪟 Windows 10 / 11</b></summary>
 
-If your browser opened in a normal tab instead of true full-screen, press
-`⌘` + `Ctrl` + `F` for the cinematic effect.
+1. Make sure Python is installed. Easiest way: open the **Microsoft Store**,
+   search for **Python 3**, and click **Get** on the latest stable release.
+   It installs in under a minute and is free.
+2. Open **Windows Terminal** (or PowerShell): press the Start button, type
+   `Terminal`, press Enter.
+3. Download this project. In your browser, go to the GitHub page for
+   `hello-world-wall`, click the green **Code** button → **Download ZIP**,
+   then right-click the downloaded file in your Downloads folder and choose
+   **Extract All…** to unzip it.
+4. In the Terminal, type these two lines, pressing Enter after each (use
+   `-main` if that's what your folder is called):
+   ```
+   cd $env:USERPROFILE\Downloads\hello-world-wall
+   python run.py
+   ```
+   (If `python` says "not found", try `py run.py` instead — Windows installs
+   Python under the `py` launcher.)
+5. After ~15 seconds your browser opens a dark page covered in `Hello World`
+   tiles with a big red button in the middle.
+6. Click the red **END PROJECT** button to shut it all down.
+
+If your browser opened in a normal tab, press `F11` for full-screen.
+</details>
+
+<details>
+<summary><b>🐧 Linux (Ubuntu/Debian/Fedora/Arch/…)</b></summary>
+
+1. Open your terminal (usually `Ctrl` + `Alt` + `T`, or find "Terminal" in
+   your app menu). Python 3 is already installed on essentially every modern
+   Linux distribution.
+2. Download this project. Either:
+   ```
+   git clone https://github.com/DanielDeveloped/hello-world-wall.git
+   ```
+   …or grab the ZIP from the GitHub page (green **Code** → **Download ZIP**)
+   and unzip it.
+3. In the terminal, run:
+   ```
+   cd hello-world-wall
+   python3 run.py
+   ```
+4. After ~15 seconds your browser opens a dark page covered in `Hello World`
+   tiles with a big red button in the middle.
+5. Click the red **END PROJECT** button to shut it all down.
+
+If your browser opened in a normal tab, press `F11` for full-screen.
+</details>
+
+**That's it on every OS.** Nothing got installed permanently (Python on Windows
+is the one exception, but you'll use that again). Nothing is still running.
 
 ### 🟡 Path B — "I kind of know my way around a terminal"
 
 ```bash
 git clone https://github.com/DanielDeveloped/hello-world-wall.git
 cd hello-world-wall
-python3 run.py
+python3 run.py          # macOS / Linux
+# or:    py run.py      # Windows (use whichever Python launcher you have)
 ```
 
 That's the whole story. No `pip install`, no virtualenv — pure standard
 library. The browser opens automatically. Click **END PROJECT** to shut down.
 
-To see how many languages will actually run live on your machine (without
-running anything), try:
+To see how many languages will actually run live on your machine, without
+running anything:
 ```bash
 python3 run.py --list
 ```
 
-The more language runtimes you have installed (`brew install go rust lua php
-deno julia kotlin gfortran` etc.), the more tiles will turn green. You don't
-have to install anything — missing ones just show as "runtime not installed",
-which is honest and looks fine.
+The more language runtimes you have installed, the more tiles turn green.
+You don't have to install anything — missing ones show as
+"runtime not installed", which is honest and looks fine. Quick install hints:
+
+| OS | Useful one-liner to add a lot of green tiles |
+|---|---|
+| macOS | `brew install go rust lua php deno julia kotlin gfortran nim crystal zig` |
+| Ubuntu/Debian | `sudo apt install golang rustc lua5.4 php-cli r-base gfortran tcl` |
+| Fedora | `sudo dnf install golang rust lua php R gcc-gfortran tcl` |
+| Arch | `sudo pacman -S go rust lua php r tcl gcc-fortran` |
+| Windows (Chocolatey) | `choco install golang rust lua php nodejs deno r.project` |
+| Windows (winget) | `winget install GoLang.Go Rustlang.Rust.MSVC Lua.Lua` |
 
 ### 🔴 Path C — "I'm a developer"
 
@@ -149,6 +191,13 @@ python3 run.py [--no-open] [--dry-run] [--list] [--timeout 40]
 | `--dry-run` | Run the languages, print a colourised results table, exit. No server. Good for CI and laughing at how many "n/a" rows you have. |
 | `--list` | Print every registered language plus availability, run nothing. |
 | `--timeout SECS` | Override the default per-step timeout (default 25s). Compiled / JVM languages have per-language overrides on top. |
+
+Cross-platform notes:
+- **Process isolation / kill-on-timeout:** `start_new_session=True` + `os.killpg(SIGKILL)` on POSIX, `CREATE_NEW_PROCESS_GROUP` + `taskkill /F /T` on Windows. Wrapped in `controller/portable.py`.
+- **Python tile** uses `sys.executable`, so it always runs on whatever interpreter you invoked the controller with — no PATH dance for `python3` vs `python` vs `py`.
+- **Browser launch** finds Chrome / Chromium / Edge / Brave in macOS `/Applications`, Windows `Program Files`, or Linux `$PATH`, in that order.
+- **Architecture-specific Assembly** is included for macOS arm64 & x86_64 and Linux arm64 & x86_64. Windows asm needs MSVC/MASM + kernel32 linkage; the tile honestly says "requires macOS or Linux".
+- **Platform-restricted tiles** (Objective-C, AppleScript, Windows PowerShell, Batch) are marked as such on the wrong OS rather than attempted.
 
 Architecture: see [How it works](#how-it-works) below and the [design answers](#design-answers).
 Adding a language is one entry in `controller/languages.py` — no other file
@@ -240,20 +289,24 @@ matters.
 
 - **`controller/languages.py`** — the registry. One `Lang(...)` entry per
   language with its source code, build/run commands, required executables,
-  per-language timeout, and historical credit.
+  per-language timeout, historical credit, and optional `platforms` filter.
 - **`controller/runner.py`** — runs each language in its own private temp
-  subdirectory, in its own process group (`start_new_session=True`), with a
-  wall-clock timeout. On timeout the *entire* process group is killed with
-  `os.killpg`, so no grandchild process can survive (important for things
-  like `go run` which spawns the compiler then the binary).
+  subdirectory, isolated as a process group / job, with a wall-clock timeout.
+  On timeout the *entire* process tree is killed (POSIX: `os.killpg(SIGKILL)`;
+  Windows: `taskkill /F /T`), so no grandchild process can survive — important
+  for things like `go run` which spawns the compiler then the binary.
+- **`controller/portable.py`** — wraps every OS difference into one place:
+  process-group flags for `subprocess.Popen`, the kill-the-whole-tree helper,
+  the `.exe` suffix for compiled output, the safe `SIGTERM`/`SIGHUP` setup.
 - **`controller/server.py`** — a tiny `ThreadingHTTPServer` bound to
   `127.0.0.1` only. Two routes: `/` returns the page, `/exit` triggers a
   clean shutdown.
 - **`controller/page.py`** — renders the captured results into one
   self-contained HTML page (no external CSS, no external JS, no network).
-- **`run.py`** — orchestrates everything, opens the page in a browser
-  (Chrome `--app --start-fullscreen` if found), installs `atexit` + signal
-  handlers so cleanup runs even on `SIGTERM` / `SIGHUP` / `Ctrl+C`.
+- **`run.py`** — orchestrates everything, finds and opens a Chrome-family
+  browser per-OS (`--app --start-fullscreen`) or falls back to the system
+  default, installs `atexit` + signal handlers so cleanup runs even on
+  `SIGTERM` / `SIGHUP` / `Ctrl+C`.
 
 ### Folder structure
 ```
@@ -267,6 +320,7 @@ hello-world-wall/
     ├── __init__.py
     ├── languages.py       # the registry (add a language = add an entry)
     ├── runner.py          # safe subprocess execution
+    ├── portable.py        # macOS / Linux / Windows compatibility helpers
     ├── server.py          # localhost server + /exit
     └── page.py            # full-screen page renderer
 ```
@@ -315,14 +369,17 @@ The original brief asked ten questions. Here they are, answered honestly.
    6. Add the long tail of "run if installed" languages with honest fallback.
    7. Polish: parallel execution, terminal summary, signal/`atexit` safety
       net, historical credits on every tile.
-10. **Risks and limitations.** Coverage depends on what's installed (this is
-    honest, not a bug); Assembly is architecture-specific (arm64 and x86_64
-    variants included, anything else fails honestly); first compiles of
-    Swift/Java/Kotlin can be slow (hence per-language timeouts); in a
-    non-script browser tab `window.close()` won't close the tab — the
-    controller still exits and the page tells you it's safe to close;
-    it only ever runs its own tiny fixed `Hello World` programs — it never
-    executes untrusted or user-supplied code.
+10. **Risks and limitations.** Coverage depends on what's installed and on the
+    host OS (this is honest, not a bug); Assembly is OS- and arch-specific
+    (macOS arm64/x86_64 and Linux arm64/x86_64 are included; Windows asm
+    honestly says "requires macOS or Linux"); Objective-C and AppleScript are
+    macOS-only, Batch and Windows PowerShell are Windows-only — each is
+    labelled "requires …" on the wrong OS instead of being faked; first
+    compiles of Swift/Java/Kotlin can be slow (hence per-language timeouts);
+    in a non-script browser tab `window.close()` won't close the tab — the
+    controller still exits and the page tells you it's safe to close; it only
+    ever runs its own tiny fixed `Hello World` programs — it never executes
+    untrusted or user-supplied code.
 
 ---
 
@@ -337,6 +394,9 @@ The original brief asked ten questions. Here they are, answered honestly.
   no telemetry. The server listens on `127.0.0.1` only.
 - All language outputs shown on the wall are **captured from real
   executions** on the user's machine. Languages that did not run say so.
+- The screenshot in this README is from a macOS arm64 machine. Your wall will
+  look different — different tiles will be green depending on what runtimes
+  you have installed and which operating system you're on. Both are honest.
 - Historical attributions in the credit table are presented in good faith
   from widely-available sources; corrections via issue/PR are welcome.
 

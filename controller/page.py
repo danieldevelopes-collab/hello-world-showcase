@@ -37,9 +37,13 @@ def _tile(r: Result) -> str:
     elif r.status == STATUS_UNAVAILABLE:
         status_cls = "na"
         badge = "N/A"
-        miss = ", ".join(r.missing)
-        body = '<div class="out muted">runtime not installed</div>'
-        meta = f'<code>missing: {html.escape(miss)}</code>'
+        if r.missing:
+            body = '<div class="out muted">runtime not installed</div>'
+            meta = f'<code>missing: {html.escape(", ".join(r.missing))}</code>'
+        else:
+            # Platform-restricted (e.g. "requires darwin") — no missing exes.
+            body = f'<div class="out muted">{html.escape(r.error or "unavailable")}</div>'
+            meta = ""
     else:  # failed
         status_cls = "err"
         badge = "FAIL"

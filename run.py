@@ -18,7 +18,6 @@ import argparse
 import atexit
 import os
 import shutil
-import signal
 import subprocess
 import sys
 import tempfile
@@ -29,6 +28,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from controller import page, runner, server  # noqa: E402
 from controller.languages import get_languages  # noqa: E402
+from controller.portable import (current_platform, install_shutdown_signals,
+                                 kill_tree, popen_isolation_kwargs)  # noqa: E402
 
 C_GREEN, C_YELLOW, C_GREY, C_DIM, C_RST = (
     "\033[32m", "\033[33m", "\033[90m", "\033[2m", "\033[0m")
@@ -38,12 +39,44 @@ _SYMBOL = {
     runner.STATUS_UNAVAILABLE: (C_GREY, "n/a"),
 }
 
-_CHROME_PATHS = [
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-    "/Applications/Chromium.app/Contents/MacOS/Chromium",
-    "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
-    "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
-]
+def _find_chrome():
+    """Return a path to a Chromium-family browser if one is installed, else
+    None. Checked per-OS using the canonical install locations."""
+    plat = current_platform()
+    if plat == "darwin":
+        for path in (
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            "/Applications/Chromium.app/Contents/MacOS/Chromium",
+            "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+            "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+        ):
+            if os.path.exists(path):
+                return path
+        return None
+    if plat == "windows":
+        pf = os.environ.get("ProgramFiles", r"C:\Program Files")
+        pfx = os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")
+        local = os.environ.get("LOCALAPPDATA", "")
+        candidates = [
+            os.path.join(pf, "Google", "Chrome", "Application", "chrome.exe"),
+            os.path.join(pfx, "Google", "Chrome", "Application", "chrome.exe"),
+            os.path.join(local, "Google", "Chrome", "Application", "chrome.exe") if local else None,
+            os.path.join(pf, "Microsoft", "Edge", "Application", "msedge.exe"),
+            os.path.join(pfx, "Microsoft", "Edge", "Application", "msedge.exe"),
+            os.path.join(pf, "BraveSoftware", "Brave-Browser", "Application", "brave.exe"),
+            os.path.join(pfx, "BraveSoftware", "Brave-Browser", "Application", "brave.exe"),
+        ]
+        for path in candidates:
+            if path and os.path.exists(path):
+                return path
+        return None
+    # linux
+    for name in ("google-chrome", "google-chrome-stable", "chromium",
+                 "chromium-browser", "microsoft-edge", "brave-browser"):
+        path = shutil.which(name)
+        if path:
+            return path
+    return None
 
 
 def _print_summary(results):
@@ -68,38 +101,31 @@ def _print_summary(results):
 
 def _launch_browser(url, tmp):
     """Open the wall full-screen. Returns a Popen we can kill, or None."""
-    for path in _CHROME_PATHS:
-        if os.path.exists(path):
-            profile = os.path.join(tmp, "browser-profile")
-            args = [
-                path, f"--user-data-dir={profile}",
-                "--no-first-run", "--no-default-browser-check",
-                "--new-window", "--start-fullscreen", f"--app={url}",
-            ]
-            try:
-                proc = subprocess.Popen(
-                    args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                    start_new_session=True)
-                print(f"  opened full-screen in {os.path.basename(path)}")
-                return proc
-            except OSError:
-                break
-    webbrowser.open(url)
-    print("  opened in your default browser (press Cmd+Ctrl+F for full screen)")
-    return None
-
-
-def _kill_group(proc):
-    if proc is None or proc.poll() is not None:
-        return
-    try:
-        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+    chrome = _find_chrome()
+    if chrome:
+        profile = os.path.join(tmp, "browser-profile")
+        args = [
+            chrome, f"--user-data-dir={profile}",
+            "--no-first-run", "--no-default-browser-check",
+            "--new-window", "--start-fullscreen", f"--app={url}",
+        ]
         try:
-            proc.wait(timeout=3)
-        except subprocess.TimeoutExpired:
-            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-    except (ProcessLookupError, PermissionError):
-        pass
+            proc = subprocess.Popen(
+                args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                **popen_isolation_kwargs(),
+            )
+            print(f"  opened full-screen in {os.path.basename(chrome)}")
+            return proc
+        except OSError:
+            pass
+    webbrowser.open(url)
+    hint = {
+        "darwin":  "press Cmd+Ctrl+F for full screen",
+        "linux":   "press F11 for full screen",
+        "windows": "press F11 for full screen",
+    }[current_platform()]
+    print(f"  opened in your default browser ({hint})")
+    return None
 
 
 def main():
@@ -123,10 +149,14 @@ def main():
     langs = get_languages()
 
     if args.list:
-        print(f"\n  {len(langs)} languages registered:\n")
+        plat = current_platform()
+        print(f"\n  {len(langs)} languages registered (platform: {plat}):\n")
         for lang in langs:
             if lang.kind == "browser":
                 state = f"{C_GREEN}browser{C_RST}"
+            elif lang.platforms and plat not in lang.platforms:
+                need = " or ".join(lang.platforms)
+                state = f"{C_GREY}n/a (requires {need}){C_RST}"
             else:
                 missing = [e for e in lang.checks if shutil.which(e) is None]
                 state = (f"{C_GREY}n/a (missing: {', '.join(missing)}){C_RST}"
@@ -143,18 +173,14 @@ def main():
         if cleaned["done"]:
             return
         cleaned["done"] = True
-        _kill_group(browser)
+        kill_tree(browser)
         shutil.rmtree(tmp, ignore_errors=True)
 
-    # Always clean up, however we exit. Route SIGTERM/SIGHUP through the same
-    # KeyboardInterrupt path we already handle (safe to raise in the main
-    # thread; calling server.shutdown() from a signal handler would deadlock).
+    # Always clean up, however we exit. Route SIGTERM (and SIGHUP on POSIX)
+    # through the same KeyboardInterrupt path we already handle. Safe to call
+    # on Windows — SIGHUP simply doesn't exist there and is skipped.
     atexit.register(cleanup)
-    for sig in (signal.SIGTERM, signal.SIGHUP):
-        try:
-            signal.signal(sig, signal.default_int_handler)
-        except (ValueError, OSError, AttributeError):
-            pass
+    install_shutdown_signals()
 
     try:
         print(f"\n  Running {len(langs)} languages "

@@ -8,15 +8,21 @@ inside `build` / `run` argument lists (never with a shell, always argv lists):
     {dir}  -> the language's private working directory
 
 Each entry also carries a short historical attribution (`creator`, `since`)
-which is shown on the tile and expanded in the README. These are deliberately
-short; longer credit (committees, co-authors) lives in README.md.
+which is shown on the tile and expanded in the README. Longer credit
+(committees, co-authors) lives in README.md.
+
+`platforms` restricts a language to specific OSes (`darwin`, `linux`,
+`windows`). Default `()` means all platforms.
 
 Adding a language = adding one entry here. No other file needs to change.
 """
 
 from dataclasses import dataclass, field
 import platform
-from typing import List
+import sys
+from typing import List, Tuple
+
+from .portable import current_platform
 
 
 @dataclass
@@ -33,11 +39,13 @@ class Lang:
     kind: str = "subprocess"        # "subprocess" or "browser" (runs in the page)
     creator: str = ""               # short attribution shown on the tile
     since: str = ""                 # year of first public release
+    platforms: Tuple[str, ...] = () # () => all OSes; else subset of {darwin,linux,windows}
 
 
-# --- architecture-specific Assembly -----------------------------------------
-
-_ASM_ARM64 = """\
+# --- Assembly: hand-written per OS+arch -------------------------------------
+# macOS arm64: SVC #0x80, syscall in x16, entry _main (the C runtime calls
+# main even though we never return to it).
+_ASM_MACOS_ARM64 = """\
 .global _main
 .align 2
 _main:
@@ -55,7 +63,8 @@ msg:
     .ascii  "Hello World\\n"
 """
 
-_ASM_X86_64 = """\
+# macOS x86_64: syscall numbers carry the 0x2000000 BSD class.
+_ASM_MACOS_X86_64 = """\
 .global _main
 _main:
     movl    $0x2000004, %eax       # write
@@ -71,38 +80,95 @@ msg:
     .ascii  "Hello World\\n"
 """
 
+# Linux x86_64: write=1, exit=60, entry _start (we link with -nostdlib).
+_ASM_LINUX_X86_64 = """\
+.global _start
+.text
+_start:
+    movq    $1, %rax               # sys_write
+    movq    $1, %rdi               # fd = stdout
+    leaq    msg(%rip), %rsi
+    movq    $12, %rdx              # byte count
+    syscall
+    movq    $60, %rax              # sys_exit
+    xorq    %rdi, %rdi
+    syscall
+.section .data
+msg:
+    .ascii  "Hello World\\n"
+"""
 
-def _assembly_lang():
+# Linux aarch64: write=64, exit=93, entry _start, SVC #0.
+_ASM_LINUX_ARM64 = """\
+.global _start
+.text
+_start:
+    mov     x0, #1                 // fd = stdout
+    adr     x1, msg
+    mov     x2, #12                // byte count
+    mov     x8, #64                // sys_write
+    svc     #0
+    mov     x0, #0
+    mov     x8, #93                // sys_exit
+    svc     #0
+.section .data
+msg:
+    .ascii  "Hello World\\n"
+"""
+
+
+def _assembly_lang() -> Lang:
+    plat = current_platform()
     machine = platform.machine().lower()
+
+    common = dict(
+        name="Assembly", file="hello.s", category="tricky", timeout=20,
+        creator="Kathleen Booth (first assembler)", since="1947",
+    )
+
+    if plat == "windows":
+        # Genuinely hard to do portably (MSVC/MASM/link with kernel32).
+        # We surface the limitation honestly instead of pretending.
+        return Lang(
+            run=["{exe}"], checks=["cc"],
+            source="; Windows hello-world assembly requires MSVC/MASM + kernel32 linking\n",
+            note="Windows asm needs MSVC/MASM; not attempted here",
+            platforms=("darwin", "linux"), **common,
+        )
+
+    if plat == "darwin":
+        if machine in ("arm64", "aarch64"):
+            src, note = _ASM_MACOS_ARM64, "macOS arm64, raw write/exit syscalls"
+        elif machine in ("x86_64", "amd64"):
+            src, note = _ASM_MACOS_X86_64, "macOS x86_64, raw write/exit syscalls"
+        else:
+            src, note = "; unsupported architecture\n", f"no hand-written variant for {machine}"
+        return Lang(
+            source=src, build=[["cc", "{src}", "-o", "{exe}"]],
+            run=["{exe}"], checks=["cc"], note=note, **common,
+        )
+
+    # linux
     if machine in ("arm64", "aarch64"):
-        src = _ASM_ARM64
-        note = "macOS arm64, raw write/exit syscalls"
+        src, note = _ASM_LINUX_ARM64, "Linux arm64, raw write/exit syscalls"
     elif machine in ("x86_64", "amd64"):
-        src = _ASM_X86_64
-        note = "macOS x86_64, raw write/exit syscalls"
+        src, note = _ASM_LINUX_X86_64, "Linux x86_64, raw write/exit syscalls"
     else:
-        src = "; unsupported architecture\n"
-        note = f"no hand-written variant for {machine}"
+        src, note = "; unsupported architecture\n", f"no hand-written variant for {machine}"
     return Lang(
-        name="Assembly",
-        file="hello.s",
         source=src,
-        build=[["cc", "{src}", "-o", "{exe}"]],
-        run=["{exe}"],
-        checks=["cc"],
-        category="tricky",
-        note=note,
-        timeout=20,
-        creator="Kathleen Booth (first assembler)",
-        since="1947",
+        build=[["cc", "{src}", "-o", "{exe}", "-nostdlib", "-static"]],
+        run=["{exe}"], checks=["cc"], note=note, **common,
     )
 
 
 def get_languages() -> List[Lang]:
     langs: List[Lang] = [
         # ---- almost always present: scripting + shells ----
+        # Python: sys.executable is the interpreter running THIS controller,
+        # which is guaranteed to exist on every platform we run on.
         Lang("Python", "hello.py", 'print("Hello World")\n',
-             run=["python3", "{src}"], checks=["python3"],
+             run=[sys.executable, "{src}"], checks=[],
              creator="Guido van Rossum", since="1991"),
         Lang("JavaScript", "hello.js", 'console.log("Hello World");\n',
              run=["node", "{src}"], checks=["node"], note="Node.js",
@@ -136,7 +202,7 @@ def get_languages() -> List[Lang]:
              creator="John Ousterhout", since="1988"),
         Lang("AppleScript", "hello.applescript", '"Hello World"\n',
              run=["osascript", "{src}"], checks=["osascript"],
-             note="macOS osascript",
+             note="macOS osascript", platforms=("darwin",),
              creator="Apple (William Cook, architect)", since="1993"),
         Lang("SQL (SQLite)", "hello.sql", "-- run inline\n",
              run=["sqlite3", ":memory:", "select 'Hello World';"],
@@ -151,7 +217,18 @@ def get_languages() -> List[Lang]:
              category="ecosystem",
              creator="Jeffrey Snover (Microsoft)", since="2006"),
 
-        # ---- compiled with the C/C++/Obj-C/Swift toolchain (Xcode CLT) ----
+        # ---- Windows-only ----
+        Lang("Windows PowerShell", "hello.ps1", 'Write-Output "Hello World"\n',
+             run=["powershell", "-NoProfile", "-File", "{src}"],
+             checks=["powershell"], category="ecosystem",
+             platforms=("windows",), note="bundled with Windows",
+             creator="Jeffrey Snover (Microsoft)", since="2006"),
+        Lang("Batch (cmd)", "hello.bat", "@echo Hello World\r\n",
+             run=["cmd", "/c", "{src}"], checks=["cmd"], category="easy",
+             platforms=("windows",), note="DOS-lineage command shell",
+             creator="Microsoft (DOS lineage, Tim Paterson)", since="1980"),
+
+        # ---- compiled with the C/C++/Obj-C/Swift toolchain ----
         Lang("C", "hello.c",
              '#include <stdio.h>\nint main(void){ printf("Hello World\\n"); return 0; }\n',
              build=[["cc", "{src}", "-o", "{exe}"]], run=["{exe}"],
@@ -167,6 +244,8 @@ def get_languages() -> List[Lang]:
              'int main(){ @autoreleasepool { printf("Hello World\\n"); } return 0; }\n',
              build=[["clang", "{src}", "-framework", "Foundation", "-o", "{exe}"]],
              run=["{exe}"], checks=["clang"], category="compiled",
+             platforms=("darwin",),
+             note="needs Foundation (macOS frameworks)",
              creator="Brad Cox & Tom Love", since="1984"),
         Lang("Swift", "hello.swift", 'print("Hello World")\n',
              run=["swift", "{src}"], checks=["swift"], category="compiled",

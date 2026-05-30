@@ -12,7 +12,6 @@ Safety model:
 import os
 import re
 import shutil
-import signal
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -20,6 +19,8 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 from .languages import Lang
+from .portable import (current_platform, exe_suffix, kill_tree,
+                       popen_isolation_kwargs)
 
 DEFAULT_TIMEOUT = 25.0          # seconds, per build step and per run
 MAX_PARALLEL = 8                # be polite to the machine
@@ -61,7 +62,9 @@ def _resolve(tokens: List[str], subst: Dict[str, str]) -> List[str]:
 def _run_capture(cmd: List[str], cwd: str, timeout: float):
     """Run argv, return (returncode, stdout, stderr, timed_out).
 
-    On timeout the entire process group is killed so no grandchild survives.
+    On timeout the entire process tree is killed via the portable helper
+    (process group on POSIX, `taskkill /F /T` on Windows) so no grandchild
+    survives.
     """
     try:
         proc = subprocess.Popen(
@@ -69,7 +72,7 @@ def _run_capture(cmd: List[str], cwd: str, timeout: float):
             cwd=cwd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            start_new_session=True,
+            **popen_isolation_kwargs(),
         )
     except FileNotFoundError as exc:
         return None, "", f"executable not found: {exc}", False
@@ -85,10 +88,7 @@ def _run_capture(cmd: List[str], cwd: str, timeout: float):
             False,
         )
     except subprocess.TimeoutExpired:
-        try:
-            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-        except (ProcessLookupError, PermissionError):
-            pass
+        kill_tree(proc)
         try:
             proc.communicate(timeout=5)
         except Exception:
@@ -109,6 +109,16 @@ def execute(lang: Lang, root: str, default_timeout: float) -> Result:
             creator=lang.creator, since=lang.since,
         )
 
+    # Platform restriction: honest "requires macOS" instead of attempting
+    # something we know can't work (e.g. Obj-C without Foundation on Linux).
+    if lang.platforms and current_platform() not in lang.platforms:
+        return Result(
+            name=lang.name, status=STATUS_UNAVAILABLE,
+            error=f"requires {' or '.join(lang.platforms)}",
+            command="", category=lang.category, note=lang.note,
+            real=True, creator=lang.creator, since=lang.since,
+        )
+
     # Availability: every required executable must be on PATH.
     missing = [exe for exe in lang.checks if shutil.which(exe) is None]
     if missing:
@@ -123,7 +133,7 @@ def execute(lang: Lang, root: str, default_timeout: float) -> Result:
     work = os.path.join(root, re.sub(r"[^A-Za-z0-9]+", "_", lang.name).strip("_"))
     os.makedirs(work, exist_ok=True)
     src_path = os.path.join(work, lang.file)
-    exe_path = os.path.join(work, "prog")
+    exe_path = os.path.join(work, "prog" + exe_suffix())
     subst = {"src": src_path, "exe": exe_path, "dir": work}
 
     if lang.source:
