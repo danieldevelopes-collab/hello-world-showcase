@@ -1,10 +1,10 @@
 # Wall of Hello World
 
-> A full-screen wall of 39 programming languages all saying the same simple
+> A full-screen wall of 41 programming languages all saying the same simple
 > thing — running for real on your own machine. One button in the centre. Click
 > it and everything stops.
 
-**By Daniel Bratcher · [@DanielDeveloped](https://github.com/DanielDeveloped)**
+**By Daniel Bratcher · [@danieldevelopes-collab](https://github.com/danieldevelopes-collab)**
 · MIT licensed · Python 3 · no third-party packages · runs on **macOS, Linux, and Windows**
 
 ![A wall of programming languages each printing Hello World, with an END PROJECT button glowing in the centre](docs/screenshot.png)
@@ -128,7 +128,7 @@ If your browser opened in a normal tab, press `F11` for full-screen.
    Linux distribution.
 2. Download this project. Either:
    ```
-   git clone https://github.com/DanielDeveloped/hello-world-showcase.git
+   git clone https://github.com/danieldevelopes-collab/hello-world-showcase.git
    ```
    …or grab the ZIP from the GitHub page (green **Code** → **Download ZIP**)
    and unzip it.
@@ -150,7 +150,7 @@ is the one exception, but you'll use that again). Nothing is still running.
 ### 🟡 Path B — "I kind of know my way around a terminal"
 
 ```bash
-git clone https://github.com/DanielDeveloped/hello-world-showcase.git
+git clone https://github.com/danieldevelopes-collab/hello-world-showcase.git
 cd hello-world-showcase
 python3 run.py          # macOS / Linux
 # or:    py run.py      # Windows (use whichever Python launcher you have)
@@ -414,5 +414,5 @@ The original brief asked ten questions. Here they are, answered honestly.
 
 ## License
 
-[MIT](LICENSE) © 2026 Daniel Bratcher (DanielDeveloped). Do what you want with
+[MIT](LICENSE) © 2026 Daniel Bratcher (danieldevelopes-collab). Do what you want with
 it; a credit back is appreciated but not required.
