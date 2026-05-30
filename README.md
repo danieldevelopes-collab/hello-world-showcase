@@ -385,11 +385,9 @@ The original brief asked ten questions. Here they are, answered honestly.
 
 ## Honesty
 
-- This is a showcase project, designed and directed by Daniel Bratcher and
-  built in collaboration with **Claude Code** (Anthropic's coding agent). The
-  architecture, the registry-driven design, the choice to bake credit into
-  the tiles, and every word of this README were chosen by the author; the
-  agent's job was implementation and verification.
+- This is a showcase project by Daniel Bratcher. The architecture, the
+  registry-driven design, and the choice to bake credit into the tiles were
+  all deliberate; every word of this README was chosen with intent.
 - Nothing is downloaded at runtime. Nothing leaves your machine. There is
   no telemetry. The server listens on `127.0.0.1` only.
 - All language outputs shown on the wall are **captured from real
@@ -408,7 +406,6 @@ The original brief asked ten questions. Here they are, answered honestly.
 - Every language creator named in the [timeline above](#a-nod-to-the-people-behind-each-language).
 - All the toolchain maintainers (gcc/clang, the JVM, Node, the GNU shells)
   whose binaries do the actual work when you click run.
-- **Anthropic / Claude Code** — pair-programming tool used to build this.
 
 ---
 
