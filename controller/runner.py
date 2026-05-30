@@ -10,7 +10,6 @@ Safety model:
 """
 
 import os
-import re
 import shutil
 import subprocess
 import time
@@ -20,7 +19,7 @@ from typing import Dict, List, Optional
 
 from .languages import Lang
 from .portable import (current_platform, exe_suffix, kill_tree,
-                       popen_isolation_kwargs)
+                       popen_isolation_kwargs, slug)
 
 DEFAULT_TIMEOUT = 25.0          # seconds, per build step and per run
 MAX_PARALLEL = 8                # be polite to the machine
@@ -130,7 +129,9 @@ def execute(lang: Lang, root: str, default_timeout: float) -> Result:
             creator=lang.creator, since=lang.since,
         )
 
-    work = os.path.join(root, re.sub(r"[^A-Za-z0-9]+", "_", lang.name).strip("_"))
+    # Use slug() so C and C++ get distinct dirs ("c" vs "cpp") — earlier the
+    # naive substitution collapsed both to "C" and they shared a workdir.
+    work = os.path.join(root, slug(lang.name))
     os.makedirs(work, exist_ok=True)
     src_path = os.path.join(work, lang.file)
     exe_path = os.path.join(work, "prog" + exe_suffix())

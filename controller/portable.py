@@ -15,9 +15,23 @@ without help.
 """
 
 import os
+import re
 import signal
 import subprocess
 import sys
+
+
+def slug(name: str) -> str:
+    """Stable, filesystem-safe, URL-safe identifier for a language name.
+
+    Critically: `++` becomes `pp` and `#` becomes `sharp` *before* the
+    non-alphanumeric collapse, so `C` and `C++` end up with different slugs
+    (`c` vs `cpp`) instead of colliding into one work directory.
+    """
+    s = name.lower()
+    s = s.replace("++", "pp").replace("#", "sharp")
+    s = re.sub(r"[^a-z0-9]+", "-", s).strip("-")
+    return s or "lang"
 
 
 def current_platform() -> str:

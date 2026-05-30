@@ -1,88 +1,45 @@
-"""Renders the captured results into one dramatic full-screen HTML page.
+"""Renders an empty wall of placeholder tiles and ships the JS that fills
+them in live as Server-Sent Events arrive from /events.
 
-The page is fully self-contained (no external assets, no network) and is held
-in memory by the server. The centre button calls /exit on the controller.
+The initial HTML is fully self-contained (no external assets, no network)
+and is held in memory by the server. The page subscribes to /events on load
+and updates each tile in place when its language's result is published.
 """
 
 import html
-from typing import Dict, List
+from typing import List
 
-from .runner import (Result, STATUS_FAILED, STATUS_SUCCESS,
-                     STATUS_UNAVAILABLE)
-
-_ORDER = {STATUS_SUCCESS: 0, STATUS_FAILED: 1, STATUS_UNAVAILABLE: 2}
+from .languages import Lang
+from .portable import slug
 
 
-def _tile(r: Result) -> str:
-    name = html.escape(r.name)
-    note = html.escape(r.note) if r.note else ""
+def _placeholder(lang: Lang) -> str:
+    s = slug(lang.name)
+    name = html.escape(lang.name)
+    note = html.escape(lang.note) if lang.note else ""
     note_html = f'<span class="note">{note}</span>' if note else ""
-
     credit_parts = []
-    if r.creator:
-        credit_parts.append(f"by {html.escape(r.creator)}")
-    if r.since:
-        credit_parts.append(html.escape(r.since))
-    credit_html = (f'<span class="credit">{" · ".join(credit_parts)}</span>'
-                   if credit_parts else "")
-
-    if r.status == STATUS_SUCCESS:
-        status_cls = "ok"
-        badge = "LIVE" if r.real else "SIM"
-        if r.name == "HTML / JavaScript":
-            body = '<div class="out" id="browser-js">running…</div>'
-        else:
-            body = f'<div class="out">{html.escape(r.output) or "Hello World"}</div>'
-        meta = f'<code>{html.escape(r.command)}</code><span>{r.elapsed_ms} ms</span>'
-    elif r.status == STATUS_UNAVAILABLE:
-        status_cls = "na"
-        badge = "N/A"
-        if r.missing:
-            body = '<div class="out muted">runtime not installed</div>'
-            meta = f'<code>missing: {html.escape(", ".join(r.missing))}</code>'
-        else:
-            # Platform-restricted (e.g. "requires darwin") — no missing exes.
-            body = f'<div class="out muted">{html.escape(r.error or "unavailable")}</div>'
-            meta = ""
-    else:  # failed
-        status_cls = "err"
-        badge = "FAIL"
-        detail = html.escape(r.output)[:300]
-        body = (f'<div class="out err-text">{html.escape(r.error)}</div>'
-                f'<div class="errlog">{detail}</div>')
-        meta = f'<code>{html.escape(r.command)}</code><span>{r.elapsed_ms} ms</span>'
-
+    if lang.creator:
+        credit_parts.append(f"by {html.escape(lang.creator)}")
+    if lang.since:
+        credit_parts.append(html.escape(lang.since))
+    credit = " · ".join(credit_parts)
+    credit_html = f'<span class="credit">{credit}</span>' if credit else ""
     return (
-        f'<div class="tile {status_cls}">'
+        f'<div class="tile loading" data-slug="{s}">'
         f'<div class="hd"><span class="lang">{name}</span>'
-        f'<span class="badge">{badge}</span></div>'
-        f'{body}'
-        f'<div class="meta">{meta}{note_html}{credit_html}</div>'
+        f'<span class="badge">…</span></div>'
+        f'<div class="out muted">running…</div>'
+        f'<div class="meta">{note_html}{credit_html}</div>'
         f'</div>'
     )
 
 
-def render_page(results: List[Result]) -> str:
-    ordered = sorted(
-        results,
-        key=lambda r: (_ORDER.get(r.status, 9), 0 if r.matched else 1, r.name.lower()),
-    )
-    tiles = "\n".join(_tile(r) for r in ordered)
-
-    live = sum(1 for r in results if r.status == STATUS_SUCCESS)
-    failed = sum(1 for r in results if r.status == STATUS_FAILED)
-    na = sum(1 for r in results if r.status == STATUS_UNAVAILABLE)
-    total = len(results)
-    stats = (f"{total} languages &nbsp;•&nbsp; "
-             f"<b class='s-ok'>{live} live</b> &nbsp;•&nbsp; "
-             f"<b class='s-err'>{failed} failed</b> &nbsp;•&nbsp; "
-             f"<b class='s-na'>{na} unavailable</b>")
-
-    return (
-        _TEMPLATE
-        .replace("__STATS__", stats)
-        .replace("__TILES__", tiles)
-    )
+def render_initial(langs: List[Lang]) -> str:
+    tiles = "\n".join(_placeholder(l) for l in langs)
+    return (_TEMPLATE
+            .replace("__TILES__", tiles)
+            .replace("__TOTAL__", str(len(langs))))
 
 
 _TEMPLATE = """<!doctype html>
@@ -97,10 +54,7 @@ _TEMPLATE = """<!doctype html>
   html, body { margin: 0; height: 100%; }
   body {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    background: #05060a;
-    color: #e7ecf5;
-    min-height: 100vh;
-    overflow-x: hidden;
+    background: #05060a; color: #e7ecf5; min-height: 100vh; overflow-x: hidden;
   }
   body::before {
     content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
@@ -126,6 +80,9 @@ _TEMPLATE = """<!doctype html>
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
   header .stats { margin-top: 6px; font-size: 13px; color: #9aa6b8; }
+  header .progress { display: inline-block; width: 110px; height: 6px;
+    background: rgba(255,255,255,.08); border-radius: 999px; overflow: hidden; vertical-align: middle; margin-left: 6px; }
+  header .progress .bar { height: 100%; width: 0%; background: linear-gradient(90deg, #38bdf8, #22c55e); transition: width .25s ease; }
   .s-ok { color: #4ade80; } .s-err { color: #fbbf24; } .s-na { color: #6b7280; }
 
   main {
@@ -144,17 +101,20 @@ _TEMPLATE = """<!doctype html>
     border: 1px solid rgba(255,255,255,.08);
     display: flex; flex-direction: column; gap: 10px;
     min-height: 124px;
-    animation: pop .5s ease both;
+    transition: box-shadow .25s ease, transform .25s ease, opacity .3s ease;
   }
-  @keyframes pop { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+  .tile.loading { opacity: .55; animation: pulse-load 1.6s ease-in-out infinite; }
+  @keyframes pulse-load { 0%, 100% { opacity: .55; } 50% { opacity: 0.9; } }
+  .tile.flash { transform: scale(1.03); box-shadow: 0 0 0 1px rgba(56,189,248,.35), 0 12px 30px -16px rgba(56,189,248,.6); }
   .tile .hd { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .tile .lang { font-size: 13px; font-weight: 700; letter-spacing: .03em; color: #cdd6e6; }
   .tile .badge {
     font-size: 10px; font-weight: 700; letter-spacing: .08em;
     padding: 2px 7px; border-radius: 999px; border: 1px solid transparent;
+    color: #6b7280; background: rgba(156,163,175,.08);
   }
   .tile .out {
-    font-size: clamp(15px, 1.5vw, 20px); font-weight: 700; line-height: 1.25;
+    font-size: clamp(14px, 1.4vw, 18px); font-weight: 700; line-height: 1.25;
     word-break: break-word; flex: 1;
   }
   .tile .out.muted { color: #6b7280; font-weight: 600; }
@@ -169,12 +129,12 @@ _TEMPLATE = """<!doctype html>
   .tile .errlog { font-size: 10.5px; color: #d28b8b; white-space: pre-wrap; max-height: 48px; overflow: hidden; }
   .tile .out.err-text { color: #fbbf24; font-size: 15px; }
 
-  .tile.ok { box-shadow: 0 0 0 1px rgba(34,197,94,.20), 0 10px 30px -18px rgba(34,197,94,.6); }
+  .tile.ok { box-shadow: 0 0 0 1px rgba(34,197,94,.20), 0 10px 30px -18px rgba(34,197,94,.6); animation: none; opacity: 1; }
   .tile.ok .out { color: #c7f9d6; text-shadow: 0 0 18px rgba(34,197,94,.35); }
   .tile.ok .badge { color: #4ade80; border-color: rgba(74,222,128,.4); background: rgba(34,197,94,.10); }
-  .tile.err { box-shadow: 0 0 0 1px rgba(251,191,36,.18); }
+  .tile.err { box-shadow: 0 0 0 1px rgba(251,191,36,.18); animation: none; opacity: 1; }
   .tile.err .badge { color: #fbbf24; border-color: rgba(251,191,36,.4); background: rgba(251,191,36,.08); }
-  .tile.na { opacity: .62; }
+  .tile.na { opacity: .62; animation: none; }
   .tile.na .badge { color: #9ca3af; border-color: rgba(156,163,175,.35); background: rgba(156,163,175,.08); }
 
   /* centre button */
@@ -212,10 +172,17 @@ _TEMPLATE = """<!doctype html>
 <body>
   <header>
     <h1>WALL OF HELLO WORLD</h1>
-    <div class="stats">__STATS__ &nbsp;•&nbsp; click <b>END PROJECT</b> to shut everything down</div>
+    <div class="stats">
+      <span id="s-done">0</span>/<span id="s-total">__TOTAL__</span> done
+      <span class="progress"><span class="bar" id="s-bar"></span></span>
+      &nbsp;·&nbsp; <b class="s-ok"><span id="s-ok">0</span> live</b>
+      &nbsp;·&nbsp; <b class="s-err"><span id="s-err">0</span> failed</b>
+      &nbsp;·&nbsp; <b class="s-na"><span id="s-na">0</span> n/a</b>
+      &nbsp;·&nbsp; click <b>END PROJECT</b> to shut everything down
+    </div>
   </header>
 
-  <main>
+  <main id="grid">
     __TILES__
   </main>
 
@@ -229,18 +196,108 @@ _TEMPLATE = """<!doctype html>
   </div>
 
   <script>
-    // Prove the HTML/JS tile really executes in this page.
-    var jsTile = document.getElementById('browser-js');
-    if (jsTile) { jsTile.textContent = ['Hello', 'World'].join(' '); }
+    const TOTAL = parseInt(document.getElementById('s-total').textContent, 10);
+    const STATS = { ok: 0, fail: 0, na: 0 };
+    const SEEN = new Set();
 
-    var ended = document.getElementById('ended');
-    var btn = document.getElementById('end');
-    btn.addEventListener('click', function () {
+    function escapeHtml(s){
+      if (s == null) return "";
+      return String(s).replace(/[&<>"']/g, c => (
+        {"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;","'":"&#39;"}[c]
+      ));
+    }
+
+    function bumpStats(bucket){
+      STATS[bucket] += 1;
+      document.getElementById('s-ok').textContent = STATS.ok;
+      document.getElementById('s-err').textContent = STATS.fail;
+      document.getElementById('s-na').textContent = STATS.na;
+      const done = STATS.ok + STATS.fail + STATS.na;
+      document.getElementById('s-done').textContent = done;
+      document.getElementById('s-bar').style.width = (100 * done / TOTAL).toFixed(1) + '%';
+    }
+
+    function flash(tile){
+      tile.classList.add('flash');
+      setTimeout(() => tile.classList.remove('flash'), 400);
+    }
+
+    function renderTile(tile, r){
+      let badge, statusCls, body, metaCmd;
+      const isBrowser = (r.name === 'HTML / JavaScript');
+
+      if (r.status === 'success') {
+        statusCls = 'ok'; badge = 'LIVE';
+        if (isBrowser) {
+          // Self-prove client-side: only a real JS engine in this page can write this.
+          const ua = navigator.userAgent.match(/(Chrome|Safari|Firefox|Edg)\\/[\\d.]+/);
+          const tag = ua ? ua[0] : 'browser';
+          body = `<div class="out">Hello World — JavaScript in ${escapeHtml(tag)}</div>`;
+        } else {
+          body = `<div class="out">${escapeHtml(r.output) || 'Hello World'}</div>`;
+        }
+        const bytes = (r.output || '').length;
+        metaCmd = `<code title="${escapeHtml(r.command)}">${escapeHtml(r.command)}</code>`
+                + `<span>${r.elapsed_ms} ms · ${bytes} B</span>`;
+      } else if (r.status === 'unavailable') {
+        statusCls = 'na'; badge = 'N/A';
+        if (r.missing && r.missing.length) {
+          body = `<div class="out muted">runtime not installed</div>`;
+          metaCmd = `<code>missing: ${escapeHtml(r.missing.join(', '))}</code>`;
+        } else {
+          body = `<div class="out muted">${escapeHtml(r.error || 'unavailable')}</div>`;
+          metaCmd = '';
+        }
+      } else { // failed
+        statusCls = 'err'; badge = 'FAIL';
+        body = `<div class="out err-text">${escapeHtml(r.error || 'failed')}</div>`;
+        if (r.output) body += `<div class="errlog">${escapeHtml(String(r.output).slice(0,300))}</div>`;
+        metaCmd = `<code>${escapeHtml(r.command)}</code><span>${r.elapsed_ms} ms</span>`;
+      }
+
+      const note = r.note ? `<span class="note">${escapeHtml(r.note)}</span>` : '';
+      const creditParts = [];
+      if (r.creator) creditParts.push('by ' + r.creator);
+      if (r.since) creditParts.push(r.since);
+      const credit = creditParts.length
+        ? `<span class="credit">${escapeHtml(creditParts.join(' · '))}</span>` : '';
+
+      tile.className = `tile ${statusCls}`;
+      tile.innerHTML = `
+        <div class="hd"><span class="lang">${escapeHtml(r.name)}</span>
+          <span class="badge">${badge}</span></div>
+        ${body}
+        <div class="meta">${metaCmd}${note}${credit}</div>
+      `;
+
+      if (!SEEN.has(r.slug)) {
+        SEEN.add(r.slug);
+        bumpStats(statusCls === 'ok' ? 'ok' : statusCls === 'na' ? 'na' : 'fail');
+        flash(tile);
+      }
+    }
+
+    // Subscribe to per-language results as they complete.
+    const es = new EventSource('/events');
+    es.addEventListener('result', e => {
+      const r = JSON.parse(e.data);
+      const tile = document.querySelector(`.tile[data-slug="${r.slug}"]`);
+      if (tile) renderTile(tile, r);
+    });
+    es.addEventListener('done', e => {
+      document.body.classList.add('all-done');
+      es.close();
+    });
+
+    // END PROJECT button → /exit, then attempt window.close().
+    const ended = document.getElementById('ended');
+    const btn = document.getElementById('end');
+    btn.addEventListener('click', () => {
       btn.disabled = true;
       ended.style.display = 'flex';
-      fetch('/exit').catch(function () {}).finally(function () {
-        // Close the window if the browser allows it (app/kiosk windows do).
-        setTimeout(function () { try { window.close(); } catch (e) {} }, 250);
+      try { es.close(); } catch(_) {}
+      fetch('/exit').catch(() => {}).finally(() => {
+        setTimeout(() => { try { window.close(); } catch (e) {} }, 250);
       });
     });
   </script>
