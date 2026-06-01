@@ -4,7 +4,7 @@
 > thing — running for real on your own machine. One button in the centre. Click
 > it and everything stops.
 
-**By Daniel Bratcher · [@danieldevelopes-collab](https://github.com/danieldevelopes-collab)**
+**By Daniel Bracher · [@danieldevelopes-collab](https://github.com/danieldevelopes-collab)**
 · MIT licensed · Python 3 · no third-party packages · runs on **macOS, Linux, and Windows**
 
 ![A wall of programming languages each printing Hello World, with an END PROJECT button glowing in the centre](docs/screenshot.png)
@@ -385,7 +385,7 @@ The original brief asked ten questions. Here they are, answered honestly.
 
 ## Honesty
 
-- This is a showcase project by Daniel Bratcher. The architecture, the
+- This is a showcase project by Daniel Bracher. The architecture, the
   registry-driven design, and the choice to bake credit into the tiles were
   all deliberate; every word of this README was chosen with intent.
 - Nothing is downloaded at runtime. Nothing leaves your machine. There is
@@ -411,5 +411,5 @@ The original brief asked ten questions. Here they are, answered honestly.
 
 ## License
 
-[MIT](LICENSE) © 2026 Daniel Bratcher (danieldevelopes-collab). Do what you want with
+[MIT](LICENSE) © 2026 Daniel Bracher (danieldevelopes-collab). Do what you want with
 it; a credit back is appreciated but not required.
